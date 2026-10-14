@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="PLAYORA: descubra filmes, desenhos, documentários e vídeos públicos de fontes autorizadas.">
+  <title>PLAYORA — descubra algo novo</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="PLAYORA início"><span class="brand-mark">▶</span><span>PLAYORA</span></a>
+    <span class="top-note">Descobertas sem fim</span>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">SEU PRÓXIMO PLAY COMEÇA AQUI</p>
+      <h1>O que vamos <span>descobrir</span> hoje?</h1>
+      <p class="hero-copy">Filmes, desenhos, documentários e curiosidades encontrados em fontes públicas.</p>
+      <form id="search-form" class="searchbar" role="search">
+        <span aria-hidden="true">⌕</span>
+        <input id="search-input" type="search" placeholder="Buscar filmes, desenhos, ciência..." aria-label="Buscar conteúdo">
+        <button type="submit">Buscar</button>
+      </form>
+    </section>
+
+    <section class="categories-section" aria-labelledby="categories-heading">
+      <div class="section-heading"><div><p class="eyebrow">EXPLORE POR TEMA</p><h2 id="categories-heading">Categorias</h2></div></div>
+      <div class="category-list" id="category-list">
+        <button class="category-chip active" data-category="all">✦ Tudo</button>
+        <button class="category-chip" data-category="movies">🎬 Filmes</button>
+        <button class="category-chip" data-category="cartoons">🧸 Desenhos</button>
+        <button class="category-chip" data-category="documentaries">🌎 Documentários</button>
+        <button class="category-chip" data-category="science">🚀 Ciência</button>
+        <button class="category-chip" data-category="facebook">ⓕ Facebook</button>
+      </div>
+    </section>
+
+    <section class="results-section" aria-labelledby="results-heading">
+      <div class="section-heading results-heading">
+        <div><p class="eyebrow">CATÁLOGO PÚBLICO</p><h2 id="results-heading">Para descobrir</h2></div>
+        <span id="result-count" class="result-count">Pronto para buscar</span>
+      </div>
+      <div id="status" class="status" role="status">Pesquise um assunto ou escolha uma categoria para encontrar conteúdos disponíveis em fontes públicas.</div>
+      <div id="results" class="results-grid"></div>
+      <button id="load-more" class="load-more" hidden>Carregar mais</button>
+    </section>
+
+    <section id="facebook-note" class="source-note" hidden>
+      <div class="note-icon">ⓕ</div>
+      <div><h3>Vídeos públicos do Facebook</h3><p>A Meta não oferece uma busca geral irrestrita para descobrir todos os vídeos públicos. O PLAYORA poderá incorporar links públicos compatíveis, mas não vai fingir que encontrou vídeos automaticamente. A integração será ativada quando houver um método oficial de descoberta disponível.</p></div>
+    </section>
+  </main>
+
+  <footer class="footer"><span class="brand-mark">▶</span><span>PLAYORA</span><span class="footer-muted">Conteúdo de suas fontes originais. Disponibilidade e direitos variam por item.</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
