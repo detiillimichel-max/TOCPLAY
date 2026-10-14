@@ -1,0 +1,30 @@
+name: Validate PLAYORA
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check required files
+        run: |
+          test -f index.html
+          test -f app.js
+          test -f styles.css
+          test -f manifest.webmanifest
+          test -f api/search.js
+          test -f sw.js
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check api/search.js
+          node --check sw.js
+      - name: Validate manifest JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON válido')"
