@@ -14,6 +14,7 @@ function validateFacebookUrl(value) {
     const isFacebookHost = host === "facebook.com" || host.endsWith(".facebook.com");
     const isVideoPath =
       url.pathname.startsWith("/share/v/") ||
+      url.pathname.startsWith("/share/r/") ||
       url.pathname.startsWith("/reel/") ||
       url.pathname.startsWith("/watch/") ||
       url.pathname.startsWith("/videos/");
