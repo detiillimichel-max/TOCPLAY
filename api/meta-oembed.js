@@ -45,7 +45,12 @@ module.exports = async function handler(req, res) {
     );
   }
 
-  const params = new URLSearchParams({ url: facebookUrl });
+  const params = new URLSearchParams({
+    url: facebookUrl,
+    useiframe: "true",
+    omitscript: "true",
+    maxwidth: "500"
+  });
   const endpoint = META_OEMBED_ENDPOINT + "?" + params.toString();
 
   try {
