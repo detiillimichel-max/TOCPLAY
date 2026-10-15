@@ -62,18 +62,29 @@ module.exports = async function handler(req, res) {
     const payload = await upstream.json().catch(() => null);
 
     if (!upstream.ok || !payload || payload.type !== "video" || !payload.html) {
-      return res.status(502).json({
+      const metaError = payload && payload.error
+        ? {
+            type: payload.error.type || null,
+            code: payload.error.code || null,
+            message: payload.error.message || null
+          }
+        : null;
+
+      // Meta's generic HTTP 500 / OAuthException code 1 is inconclusive:
+      // do not label the video private or permanently reject it.
+      const transientMetaError =
+        upstream.status >= 500 ||
+        (metaError && Number(metaError.code) === 1);
+
+      return res.status(transientMetaError ? 503 : 502).json({
         ok: false,
-        error: "META_OEMBED_REJECTED",
-        message: "A Meta não aceitou a incorporação deste vídeo.",
+        error: transientMetaError ? "META_TEMPORARY_ERROR" : "META_OEMBED_REJECTED",
+        retryable: Boolean(transientMetaError),
+        message: transientMetaError
+          ? "A Meta retornou um erro temporário ou inconclusivo. Não é possível concluir que o vídeo seja privado; tente validar novamente mais tarde."
+          : "A Meta não aceitou a incorporação deste vídeo. Ele só deve ser excluído definitivamente após uma validação conclusiva.",
         metaStatus: upstream.status,
-        metaError: payload && payload.error
-          ? {
-              type: payload.error.type || null,
-              code: payload.error.code || null,
-              message: payload.error.message || null
-            }
-          : null
+        metaError
       });
     }
 
