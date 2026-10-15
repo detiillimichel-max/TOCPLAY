@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080b12">
-  <meta name="description" content="Página isolada para testar a reprodução de um Reel público do Facebook no PLAYORA.">
+  <meta name="description" content="Teste isolado da incorporação de um Reel do Facebook no PLAYORA.">
   <title>Teste Facebook Reel — PLAYORA</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -14,8 +14,8 @@
     .test-label{display:inline-flex;align-items:center;gap:8px;border:1px solid #28584d;background:#123129;color:var(--accent);padding:7px 11px;border-radius:999px;font-size:12px;font-weight:750}
     .test-panel h1{font-size:clamp(27px,6vw,42px);line-height:1.08;letter-spacing:-.04em;margin:18px 0 10px}
     .test-copy{color:var(--muted);font-size:14px;line-height:1.7}
-    .reel-stage{display:flex;justify-content:center;margin:22px auto;min-height:240px;padding:12px;background:#080b12;border:1px solid var(--line);border-radius:16px;overflow:hidden}
-    .fb-video{max-width:100%}
+    .reel-stage{display:flex;justify-content:center;margin:22px auto;min-height:240px;padding:8px;background:#080b12;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .reel-frame{display:block;width:100%;max-width:500px;height: min(78vh, 760px);min-height:420px;border:0;background:#000;border-radius:10px}
     .test-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
     .test-link{display:inline-flex;justify-content:center;align-items:center;gap:8px;padding:12px 15px;border:1px solid #334155;border-radius:11px;color:var(--text);background:#1a2635;text-decoration:none;font-weight:750;font-size:13px}
     .test-link.primary{background:var(--accent);border-color:var(--accent);color:#06130f}
@@ -23,8 +23,7 @@
     .test-warning{font-size:12px;color:var(--muted);line-height:1.65;margin-top:18px}
     .test-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .test-top a{color:var(--accent);text-decoration:none;font-size:13px}
-    [hidden]{display:none!important}
-    @media(max-width:480px){.test-wrap{padding:18px 12px 40px}.reel-stage{padding:6px}.test-actions a{flex:1 1 100%}}
+    @media(max-width:480px){.test-wrap{padding:18px 12px 40px}.reel-stage{padding:4px}.reel-frame{min-height:420px;height:70vh}.test-actions a{flex:1 1 100%}}
   </style>
 </head>
 <body>
@@ -36,47 +35,46 @@
     <div class="test-top"><span class="test-label">ⓕ PROVA DE CONCEITO</span><a href="/">← Voltar ao catálogo</a></div>
     <section class="test-panel" aria-labelledby="test-title">
       <p class="eyebrow" style="margin-top:20px">REPRODUÇÃO INCORPORADA</p>
-      <h1 id="test-title">Teste de Reel do Facebook</h1>
-      <p class="test-copy">Esta página é independente do catálogo principal. Estamos testando se um Reel público pode ser reproduzido aqui dentro, sem redirecionar imediatamente para o Facebook.</p>
-      <div id="test-status" class="test-status" role="status" aria-live="polite">Carregando o reprodutor oficial do Facebook…</div>
+      <h1 id="test-title">Teste do mesmo Reel do Facebook</h1>
+      <p class="test-copy">Estamos usando o endereço direto do mesmo Reel identificado pelo Facebook, em vez do link curto de compartilhamento. O vídeo deve aparecer abaixo, dentro desta página, se a Meta permitir a incorporação.</p>
+      <div id="test-status" class="test-status" role="status" aria-live="polite">Carregando o player oficial do Facebook…</div>
       <div class="reel-stage">
-        <div class="fb-video"
-          data-href="https://www.facebook.com/share/v/1LmvecES3t/"
-          data-width="500"
-          data-show-text="false"
-          data-allowfullscreen="true"
-          data-autoplay="false"></div>
+        <iframe
+          class="reel-frame"
+          title="Reel do Facebook em reprodução incorporada"
+          src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F906774405486005%2F&show_text=false&width=500"
+          width="500"
+          height="760"
+          style="border:none;overflow:hidden"
+          scrolling="no"
+          frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          allowfullscreen="true"
+          loading="eager"
+          referrerpolicy="strict-origin-when-cross-origin"></iframe>
       </div>
       <div class="test-actions">
-        <a class="test-link primary" href="https://www.facebook.com/share/v/1LmvecES3t/" target="_blank" rel="noopener noreferrer">Abrir vídeo original ↗</a>
-        <a class="test-link" href="/api/meta-oembed?url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fv%2F1LmvecES3t%2F" target="_blank" rel="noopener noreferrer">Ver resposta oEmbed (JSON)</a>
+        <a class="test-link primary" href="https://www.facebook.com/reel/906774405486005/" target="_blank" rel="noopener noreferrer">Abrir o mesmo Reel ↗</a>
+        <a class="test-link" href="/api/meta-oembed?url=https%3A%2F%2Fwww.facebook.com%2Freel%2F906774405486005%2F" target="_blank" rel="noopener noreferrer">Diagnóstico oEmbed (JSON)</a>
       </div>
-      <p class="test-warning">Observação: o JSON confirma que a Meta forneceu o código de incorporação, mas a reprodução depende das configurações do Reel, da disponibilidade pública, dos cookies e das políticas do próprio Facebook. Se o player não carregar, isso não altera o catálogo principal.</p>
+      <p class="test-warning">Esta alteração afeta somente esta página de teste, não o catálogo principal nem outros projetos. O iframe usa o player oficial do Facebook e o endereço direto do Reel. Se a Meta bloquear a incorporação, veremos isso separadamente do acesso ao vídeo original.</p>
     </section>
   </main>
   <script>
     (function () {
       const status = document.getElementById("test-status");
-      let sdkLoaded = false;
-      window.fbAsyncInit = function () {
-        sdkLoaded = true;
-        if (window.FB && window.FB.XFBML) {
-          window.FB.XFBML.parse();
-          status.textContent = "SDK carregado. Se o vídeo não aparecer, use o link original para comparar a disponibilidade.";
-        }
-      };
-      const sdk = document.createElement("script");
-      sdk.async = true;
-      sdk.defer = true;
-      sdk.crossOrigin = "anonymous";
-      sdk.src = "https://connect.facebook.net/pt_BR/sdk.js#xfbml=1&version=v26.0";
-      sdk.onerror = function () {
-        status.textContent = "Não foi possível carregar o SDK do Facebook. Confira a conexão ou abra o vídeo original.";
-      };
-      document.body.appendChild(sdk);
+      const frame = document.querySelector(".reel-frame");
+      frame.addEventListener("load", function () {
+        status.textContent = "O player oficial carregou. Confira se a imagem do vídeo e os controles aparecem abaixo.";
+      });
+      frame.addEventListener("error", function () {
+        status.textContent = "O iframe não carregou. Isso pode indicar bloqueio da incorporação pela Meta ou falha de rede.";
+      });
       window.setTimeout(function () {
-        if (!sdkLoaded) status.textContent = "Aguardando o SDK do Facebook. Se permanecer assim, tente recarregar ou abrir o vídeo original.";
-      }, 10000);
+        if (status.textContent === "Carregando o player oficial do Facebook…") {
+          status.textContent = "O iframe ainda está aguardando resposta. Confira se o vídeo aparece; se não aparecer, envie uma captura desta página.";
+        }
+      }, 12000);
     })();
   </script>
 </body>
