@@ -26,9 +26,32 @@ function ensureFacebookPlayer(){
  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeFacebookPlayer();});
 }
 function closeFacebookPlayer(){const modal=$("#facebook-player-modal");if(!modal)return;modal.classList.remove("open");modal.querySelector("iframe").src="about:blank";}
-function openFacebookPlayer(item){
- ensureFacebookPlayer();const modal=$("#facebook-player-modal");const frame=modal.querySelector("iframe");const embed="https://www.facebook.com/plugins/video.php?href="+encodeURIComponent(item.url)+"&show_text=false&width=500";
- $("#fb-modal-title").textContent=item.title;frame.src=embed;modal.querySelector(".fb-modal-fallback").href=item.url;modal.classList.add("open");
+async function openFacebookPlayer(item){
+ ensureFacebookPlayer();
+ const modal=$("#facebook-player-modal");
+ const frame=modal.querySelector("iframe");
+ const title=$("#fb-modal-title");
+ const fallback=modal.querySelector(".fb-modal-fallback");
+ title.textContent=item.title+" · carregando…";
+ frame.src="about:blank";
+ fallback.href=item.url;
+ modal.classList.add("open");
+ let playerUrl=item.url;
+ try{
+  const response=await fetch("/api/meta-oembed?url="+encodeURIComponent(item.url),{headers:{Accept:"application/json"}});
+  const data=await response.json().catch(()=>null);
+  if(data&&data.resolved_share_url&&/^https:\/\/([a-z0-9-]+\.)*facebook\.com\//i.test(data.resolved_share_url)){
+   playerUrl=data.resolved_share_url;
+  }else if(data&&data.ok&&data.embed_url){
+   playerUrl=data.embed_url;
+  }
+ }catch(error){
+  // The official Facebook iframe remains the fallback if the resolver is unavailable.
+ }
+ if(!modal.classList.contains("open"))return;
+ title.textContent=item.title;
+ fallback.href=playerUrl;
+ frame.src="https://www.facebook.com/plugins/video.php?href="+encodeURIComponent(playerUrl)+"&show_text=false&width=500";
 }
 function showFacebookCatalog(){
  facebookNote.hidden=true;moreButton.hidden=true;countBox.textContent=facebookVideos.length+" vídeos selecionados";
