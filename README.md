@@ -1,4 +1,4 @@
-# TOCPLAY — PLAYORA
+# TOCPLAY #
 
 PWA mobile-first para descobrir filmes, desenhos, documentários e vídeos públicos em fontes autorizadas.
 
