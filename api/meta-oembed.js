@@ -30,23 +30,12 @@ function isCanonicalVideoUrl(url) {
     url.pathname === "/video.php";
 }
 
-async function resolveFacebookUrl(inputUrl) {
+// Do not try to resolve share links server-side: Facebook may return a login
+// page with client-side navigation rather than an HTTP redirect.
+function resolveFacebookUrl(inputUrl) {
   const parsed = parseFacebookUrl(inputUrl);
-  if (!parsed) return null;
-  if (!isShareUrl(parsed)) return isCanonicalVideoUrl(parsed) ? parsed.toString() : null;
-
-  try {
-    const response = await fetch(parsed.toString(), {
-      redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; PLAYORA/1.0)", Accept: "text/html" },
-      signal: AbortSignal.timeout(8000)
-    });
-    const finalUrl = parseFacebookUrl(response.url);
-    if (response.body) await response.body.cancel().catch(() => {});
-    return finalUrl && isCanonicalVideoUrl(finalUrl) ? finalUrl.toString() : null;
-  } catch {
-    return null;
-  }
+  if (!parsed || isShareUrl(parsed)) return null;
+  return isCanonicalVideoUrl(parsed) ? parsed.toString() : null;
 }
 
 module.exports = async function handler(req, res) {
@@ -60,26 +49,32 @@ module.exports = async function handler(req, res) {
 
   const original = parseFacebookUrl(req.query.url);
   if (!original || !(isShareUrl(original) || isCanonicalVideoUrl(original))) {
-    return jsonError(res, 400, "INVALID_FACEBOOK_URL", "Informe uma URL de Reel ou vídeo do Facebook.");
+    return jsonError(res, 400, "INVALID_FACEBOOK_URL", "Informe uma URL canônica de Reel ou vídeo do Facebook.");
+  }
+
+  if (isShareUrl(original)) {
+    return jsonError(
+      res,
+      400,
+      "SHARE_URL_NOT_EMBEDDABLE",
+      "O link /share/ não é aceito para incorporação. Abra o Reel no Facebook e copie a URL canônica que começa com /reel/ ou /watch/.",
+      { original_url: original.toString() }
+    );
+  }
+
+  const canonicalUrl = resolveFacebookUrl(original.toString());
+  if (!canonicalUrl) {
+    return jsonError(res, 400, "INVALID_CANONICAL_URL", "Informe a URL canônica de um vídeo do Facebook.");
   }
 
   try {
-    const canonicalUrl = await resolveFacebookUrl(original.toString());
-    if (!canonicalUrl) {
-      return jsonError(
-        res, 422, "UNRESOLVABLE_SHARE_URL",
-        "O link compartilhado não foi resolvido para uma URL canônica de vídeo. O link original continua disponível."
-      );
-    }
-
     const params = new URLSearchParams({
       url: canonicalUrl,
       useiframe: "true",
       omitscript: "true",
       maxwidth: "500"
     });
-    // Optional app access token. Store APP_ID|APP_SECRET (or another supported
-    // Meta app token) in Vercel as FB_APP_TOKEN; never expose it in the browser.
+    // Optional Meta app access token stored only in Vercel environment variables.
     if (process.env.FB_APP_TOKEN) params.set("access_token", process.env.FB_APP_TOKEN);
 
     const upstream = await fetch(META_OEMBED_ENDPOINT + "?" + params.toString(), {
@@ -101,15 +96,15 @@ module.exports = async function handler(req, res) {
         retryable: Boolean(temporary),
         message: temporary
           ? "A Meta retornou um erro temporário ou inconclusivo; isso não prova que o vídeo seja privado."
-          : "A Meta não confirmou a incorporação deste vídeo.",
+          : "A Meta não confirmou a incorporação deste vídeo. Mantenha disponível a opção de abrir o original.",
         metaStatus: upstream.status,
         metaError,
         original_url: original.toString(),
-        resolved_share_url: canonicalUrl
+        embed_url: canonicalUrl
       });
     }
 
-    // Always return a real Facebook video iframe, not SDK-dependent fb-video markup.
+    // Always return an iframe URL from Facebook's official video plugin.
     const iframeSrc = "https://www.facebook.com/plugins/video.php?href=" +
       encodeURIComponent(canonicalUrl) + "&show_text=false&width=500";
     const html = '<iframe src="' + iframeSrc +
@@ -122,8 +117,7 @@ module.exports = async function handler(req, res) {
       type: "video",
       html,
       original_url: original.toString(),
-      embed_url: canonicalUrl,
-      resolved_share_url: canonicalUrl
+      embed_url: canonicalUrl
     });
   } catch (error) {
     const timedOut = error && error.name === "TimeoutError";
