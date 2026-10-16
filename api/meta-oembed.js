@@ -1,80 +1,52 @@
 const META_OEMBED_ENDPOINT = "https://graph.facebook.com/v26.0/oembed_video";
 const CACHE_CONTROL = "public, s-maxage=600, stale-while-revalidate=1200";
 
-function jsonError(res, status, code, message) {
-  return res.status(status).json({ ok: false, error: code, message });
+function jsonError(res, status, code, message, extra = {}) {
+  return res.status(status).json({ ok: false, error: code, message, ...extra });
 }
 
-function validateFacebookUrl(value) {
+function parseFacebookUrl(value) {
   if (typeof value !== "string" || value.length > 2000) return null;
-
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
-    const isFacebookHost = host === "facebook.com" || host.endsWith(".facebook.com");
-    const path = url.pathname;
-    const isVideoPath =
-      path.startsWith("/share/v/") ||
-      path.startsWith("/share/r/") ||
-      path.startsWith("/reel/") ||
-      path.startsWith("/watch/") ||
-      path.startsWith("/videos/") ||
-      path.includes("/videos/") ||
-      path === "/video.php";
-
-    if (url.protocol !== "https:" || !isFacebookHost || !isVideoPath) return null;
+    if (url.protocol !== "https:" || !(host === "facebook.com" || host.endsWith(".facebook.com"))) return null;
     url.hash = "";
-    return url.toString();
+    return url;
   } catch {
     return null;
   }
 }
 
-function isShareUrl(value) {
-  try {
-    const path = new URL(value).pathname;
-    return path.startsWith("/share/v/") || path.startsWith("/share/r/");
-  } catch {
-    return false;
-  }
+function isShareUrl(url) {
+  return url.pathname.startsWith("/share/v/") || url.pathname.startsWith("/share/r/");
 }
 
-// Resolve only Facebook share links. Keep the original link as a fallback because
-// Facebook may block server-side redirects or return a login/interstitial URL.
-async function resolveShareUrl(value) {
-  if (!isShareUrl(value)) return value;
+function isCanonicalVideoUrl(url) {
+  return url.pathname.startsWith("/reel/") ||
+    url.pathname.startsWith("/watch/") ||
+    url.pathname.startsWith("/videos/") ||
+    url.pathname.includes("/videos/") ||
+    url.pathname === "/video.php";
+}
+
+async function resolveFacebookUrl(inputUrl) {
+  const parsed = parseFacebookUrl(inputUrl);
+  if (!parsed) return null;
+  if (!isShareUrl(parsed)) return isCanonicalVideoUrl(parsed) ? parsed.toString() : null;
 
   try {
-    const response = await fetch(value, {
-      method: "GET",
+    const response = await fetch(parsed.toString(), {
       redirect: "follow",
-      headers: { Accept: "text/html" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; PLAYORA/1.0)", Accept: "text/html" },
       signal: AbortSignal.timeout(8000)
     });
-
-    const finalUrl = response.url;
+    const finalUrl = parseFacebookUrl(response.url);
     if (response.body) await response.body.cancel().catch(() => {});
-
-    return validateFacebookUrl(finalUrl) || value;
+    return finalUrl && isCanonicalVideoUrl(finalUrl) ? finalUrl.toString() : null;
   } catch {
-    return value;
+    return null;
   }
-}
-
-async function requestOEmbed(facebookUrl) {
-  const params = new URLSearchParams({
-    url: facebookUrl,
-    useiframe: "true",
-    omitscript: "true",
-    maxwidth: "500"
-  });
-  const endpoint = META_OEMBED_ENDPOINT + "?" + params.toString();
-  const upstream = await fetch(endpoint, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(10000)
-  });
-  const payload = await upstream.json().catch(() => null);
-  return { upstream, payload };
 }
 
 module.exports = async function handler(req, res) {
@@ -86,92 +58,76 @@ module.exports = async function handler(req, res) {
     return jsonError(res, 405, "METHOD_NOT_ALLOWED", "Use uma solicitação GET.");
   }
 
-  const originalUrl = validateFacebookUrl(req.query.url);
-  if (!originalUrl) {
-    return jsonError(
-      res,
-      400,
-      "INVALID_FACEBOOK_URL",
-      "Informe uma URL HTTPS válida de um Reel ou vídeo do Facebook."
-    );
+  const original = parseFacebookUrl(req.query.url);
+  if (!original || !(isShareUrl(original) || isCanonicalVideoUrl(original))) {
+    return jsonError(res, 400, "INVALID_FACEBOOK_URL", "Informe uma URL de Reel ou vídeo do Facebook.");
   }
 
   try {
-    const resolvedUrl = await resolveShareUrl(originalUrl);
-    const candidates = [...new Set([resolvedUrl, originalUrl])];
-    let lastResult = null;
-
-    for (const candidate of candidates) {
-      const result = await requestOEmbed(candidate);
-      lastResult = { ...result, candidate };
-
-      if (
-        result.upstream.ok &&
-        result.payload &&
-        result.payload.type === "video" &&
-        result.payload.html
-      ) {
-        const payload = result.payload;
-        return res.status(200).json({
-          ok: true,
-          source: "Facebook",
-          provider_name: payload.provider_name || "Facebook",
-          provider_url: payload.provider_url || "https://www.facebook.com",
-          type: payload.type,
-          version: payload.version || "1.0",
-          width: payload.width || null,
-          height: payload.height || null,
-          title: payload.title || null,
-          author_name: payload.author_name || null,
-          author_url: payload.author_url || null,
-          html: payload.html,
-          original_url: originalUrl,
-          embed_url: candidate,
-          resolved_share_url: resolvedUrl !== originalUrl ? resolvedUrl : null
-        });
-      }
-
-      // If resolving the share link did not work, also try the original URL.
-      if (candidate === originalUrl) break;
+    const canonicalUrl = await resolveFacebookUrl(original.toString());
+    if (!canonicalUrl) {
+      return jsonError(
+        res, 422, "UNRESOLVABLE_SHARE_URL",
+        "O link compartilhado não foi resolvido para uma URL canônica de vídeo. O link original continua disponível."
+      );
     }
 
-    const { upstream, payload } = lastResult || {};
-    const metaError = payload && payload.error
-      ? {
-          type: payload.error.type || null,
-          code: payload.error.code || null,
-          message: payload.error.message || null
-        }
-      : null;
+    const params = new URLSearchParams({
+      url: canonicalUrl,
+      useiframe: "true",
+      omitscript: "true",
+      maxwidth: "500"
+    });
+    // Optional app access token. Store APP_ID|APP_SECRET (or another supported
+    // Meta app token) in Vercel as FB_APP_TOKEN; never expose it in the browser.
+    if (process.env.FB_APP_TOKEN) params.set("access_token", process.env.FB_APP_TOKEN);
 
-    // Meta's generic HTTP 500 / OAuthException code 1 is inconclusive:
-    // do not label the video private or permanently reject it.
-    const transientMetaError =
-      Boolean(upstream && upstream.status >= 500) ||
-      (metaError && Number(metaError.code) === 1);
+    const upstream = await fetch(META_OEMBED_ENDPOINT + "?" + params.toString(), {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10000)
+    });
+    const payload = await upstream.json().catch(() => null);
 
-    return res.status(transientMetaError ? 503 : 502).json({
-      ok: false,
-      error: transientMetaError ? "META_TEMPORARY_ERROR" : "META_OEMBED_REJECTED",
-      retryable: Boolean(transientMetaError),
-      message: transientMetaError
-        ? "A Meta retornou um erro temporário ou inconclusivo. Não é possível concluir que o vídeo seja privado; tente validar novamente mais tarde."
-        : "A Meta não aceitou a incorporação deste vídeo. Ele só deve ser excluído definitivamente após uma validação conclusiva.",
-      metaStatus: upstream ? upstream.status : null,
-      metaError,
-      original_url: originalUrl,
-      embed_url: lastResult ? lastResult.candidate : null,
-      resolved_share_url: resolvedUrl !== originalUrl ? resolvedUrl : null
+    if (!upstream.ok || !payload || payload.type !== "video" || !payload.html) {
+      const metaError = payload && payload.error ? {
+        type: payload.error.type || null,
+        code: payload.error.code || null,
+        message: payload.error.message || null
+      } : null;
+      const temporary = upstream.status >= 500 || (metaError && Number(metaError.code) === 1);
+      return res.status(temporary ? 503 : 502).json({
+        ok: false,
+        error: temporary ? "META_TEMPORARY_ERROR" : "META_OEMBED_REJECTED",
+        retryable: Boolean(temporary),
+        message: temporary
+          ? "A Meta retornou um erro temporário ou inconclusivo; isso não prova que o vídeo seja privado."
+          : "A Meta não confirmou a incorporação deste vídeo.",
+        metaStatus: upstream.status,
+        metaError,
+        original_url: original.toString(),
+        resolved_share_url: canonicalUrl
+      });
+    }
+
+    // Always return a real Facebook video iframe, not SDK-dependent fb-video markup.
+    const iframeSrc = "https://www.facebook.com/plugins/video.php?href=" +
+      encodeURIComponent(canonicalUrl) + "&show_text=false&width=500";
+    const html = '<iframe src="' + iframeSrc +
+      '" width="500" height="700" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" title="Vídeo do Facebook"></iframe>';
+
+    return res.status(200).json({
+      ok: true,
+      source: "Facebook",
+      provider_name: payload.provider_name || "Facebook",
+      type: "video",
+      html,
+      original_url: original.toString(),
+      embed_url: canonicalUrl,
+      resolved_share_url: canonicalUrl
     });
   } catch (error) {
     const timedOut = error && error.name === "TimeoutError";
-    return jsonError(
-      res,
-      502,
-      timedOut ? "META_TIMEOUT" : "META_UNAVAILABLE",
-      timedOut
-        ? "A Meta demorou demais para responder. Tente novamente."
-        : "Não foi possível consultar a API oEmbed da Meta agora."
-    );
+    return jsonError(res, 502, timedOut ? "META_TIMEOUT" : "META_UNAVAILABLE",
+      timedOut ? "A Meta demorou demais para responder. Tente novamente." : "Não foi possível consultar a API oEmbed da Meta agora.");
   }
 };
